@@ -1,0 +1,35 @@
+/*
+ * user_code.c
+ *
+ *  Created on: oct. 21, 2022
+ *      Author: Benoit Piranda
+ */
+
+#include <user_code.h>
+#include <layer3_generic.h>
+#include <microphone.h>
+#include <speaker.h>
+#include <light.h>
+#include <abstraction.h>
+#include <speaker.h>
+
+
+
+void BBinit() {
+	setColor(GREEN);
+}
+
+void BBloop() {
+	uint32_t value = 0xabcd0123;
+	send_message(MY_TOP, (uint8_t *) &value, sizeof(uint32_t), 1);
+}
+
+uint8_t process_standard_packet(L3_packet *packet) {
+	return 0;
+}
+
+void process_standard_ack(L3_packet *p) {
+}
+
+void process_standard_unack(L3_packet *p) {
+}

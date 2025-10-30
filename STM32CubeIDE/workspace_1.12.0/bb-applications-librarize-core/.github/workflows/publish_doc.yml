@@ -1,0 +1,58 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Publish documentation
+
+# Controls when the action will run. 
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'Commit author username'
+        required: true
+        default: 'github-actions' # GitHub Actions username
+      mail:
+        description: 'Commit author mail'
+        required: true
+        default: '41898282+github-actions[bot]@users.noreply.github.com' # email address o GitHub Actions bot
+      repo_username:
+        description: 'Repository connection username'
+        required: true
+        default: ''
+      repo_user_token:
+        description: 'User token'
+        required: true
+        default: ''
+  push:
+    branches: 
+      - master
+    paths: # only c++ files and readme file because main page of the documentation
+      - '**.cpp'
+      - '**.hpp'
+      - '**.h'
+      - '**.c'
+      - 'README.md'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build doc
+        uses: mattnotmitt/doxygen-action@v1
+        with:
+          doxyfile-path: ./DOXYFILE
+      - name: Commit to doc branch
+        uses:  TheRolfFR/action-cross-commit@master
+        with:
+          source-folder: doc/html # must match DOXYFILE OUTPUT_DIRECTORY property (html directory is created when generating html)
+          destination-repository: "https://${{ github.event.inputs.repo_username || secrets.repo_username }}:${{ github.event.inputs.repo_user_token || secrets.repo_user_token }}@github.com/ProgrammableMatterProject/bb-applications"
+          destination-folder: . # place at root
+          destination-branch: doc
+          git-user: ${{ github.event.inputs.username || 'github-actions' }} # git user signing the commit
+          git-user-email: ${{ github.event.inputs.mail || '41898282+github-actions[bot]@users.noreply.github.com' }} # git email signing the commit
+          git-commit-message: "Automatic doc update"
+          excludes: .git # !!! DON'T REMOVE .git else rsync will delete .git and it will not be able to commit and push

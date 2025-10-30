@@ -1,0 +1,139 @@
+#include <user_code.h>
+#include <microphone.h>
+#include <speaker.h>
+#include <light.h>
+#include <abstraction.h>
+#include <debug_messages.h>
+#include <layer3_generic.h>
+#include <stdint.h>
+#include <string.h>
+
+// =========================
+// Global Variables
+// =========================
+uint8_t counter;         // General-purpose counter (unused in this code)
+int8_t x, y, z;          // Coordinates of the block in 3D space
+uint8_t coordSet = 0;    // Flag to indicate whether coordinates are already set
+
+// =========================
+// Enumerations
+// =========================
+typedef enum portReferences {
+    NORTH, DOWN, EAST, WEST, SOUTH, UP, NUM_PORTS, UNDEFINED = 255
+} portReferences;        // Ports to connect to neighboring blocks
+
+typedef enum debugMessages {
+    CONFIGURATION, MSG_RECEIVED, MSG_SENT, COLOR_CHANGED
+} debugMessages;          // Types of debug messages
+
+// =========================
+// Coordinate Message Struct
+// =========================
+typedef struct {
+    uint8_t message_type; // Type of message (1 = coordinate message)
+    int8_t x;             // X coordinate
+    int8_t y;             // Y coordinate
+    int8_t z;             // Z coordinate
+} coord_msg_t;
+
+// =========================
+// Initialization function
+// =========================
+void BBinit() {
+    sleep_sec(1); // Wait 1 second for system stabilization
+
+    // Initialize coordinates to zero
+    x = 0;
+    y = 0;
+    z = 0;
+
+    // If this block is the first block (ID = 1), it sets the initial coordinates
+    if (getId() == 1) {
+        sleep_sec(5); // Wait a bit for network to stabilize
+
+        // Create a coordinate message for broadcasting
+        coord_msg_t msg = {
+            .message_type = 1,
+            .x = 0,
+            .y = 0,
+            .z = 0
+        };
+
+        coordSet = 1; // Mark coordinates as set
+
+        // Broadcast the coordinates to all connected neighbors
+        send_broadcast_message((uint8_t *) &msg, sizeof(coord_msg_t), 1);
+
+        // Set the LED color based on the sum of coordinates
+        setColor((x + y + z) % NB_COLORS);
+    }
+}
+
+// =========================
+// Main loop (empty for now)
+// =========================
+void BBloop() {
+    // The loop can contain continuous tasks for the block
+}
+
+// =========================
+// Process incoming standard packet
+// =========================
+uint8_t process_standard_packet(L3_packet *packet) {
+    uint8_t sender = packet->io_port; // Identify which port sent the message
+
+    // Send debug message indicating a packet has been received
+    uint8_t dbg_msg_received[] = {MSG_RECEIVED, sender, packet->packet_content[0], (uint8_t)getId()};
+    //send_debug_message(dbg_msg_received, sizeof(dbg_msg_received));
+
+    // Check if this is a coordinate message
+    if (packet->packet_content[0] == 1) {
+        // If coordinates are already set, ignore
+        if (coordSet) return 0;
+
+        // Cast packet content to coordinate message
+        coord_msg_t *pkt = (coord_msg_t *)packet->packet_content;
+
+        // Update coordinates based on the sender's position
+        switch (sender) {
+            case WEST:  x = pkt->x + 1; y = pkt->y; z = pkt->z; break;
+            case SOUTH: x = pkt->x; y = pkt->y + 1; z = pkt->z; break;
+            case EAST:  x = pkt->x - 1; y = pkt->y; z = pkt->z; break;
+            case NORTH: x = pkt->x; y = pkt->y - 1; z = pkt->z; break;
+            case UP:    x = pkt->x; y = pkt->y; z = pkt->z - 1; break;
+            case DOWN:  x = pkt->x; y = pkt->y; z = pkt->z + 1; break;
+        }
+
+        coordSet = 1; // Mark coordinates as set
+
+        // Prepare a message to propagate coordinates to all neighbors except sender
+        coord_msg_t msg = {
+            .message_type = 1,
+            .x = x,
+            .y = y,
+            .z = z
+        };
+
+        // Send the message to all connected ports except the sender
+        for (uint8_t i = 0; i < NUM_PORTS; i++) {
+            if (is_connected(i) && i != sender) {
+                sendMessage(i, (uint8_t *)&msg, sizeof(coord_msg_t), 1);
+            }
+        }
+
+        // Send debug message for updated coordinates
+        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z};
+        send_debug_message((uint8_t *)dbgCoordmsg, 4);
+
+        // Set LED color based on updated coordinates
+        setColor((x + y + z) % NB_COLORS);
+    }
+
+    return 0;
+}
+
+// =========================
+// Placeholder for ACK and Unack packet processing
+// =========================
+void process_standard_ack(L3_packet *p) {}
+void process_standard_unack(L3_packet *p) {}

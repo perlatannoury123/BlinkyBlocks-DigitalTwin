@@ -1,0 +1,40 @@
+/*
+ * user_code.c
+ *
+ *  Created on: oct. 21, 2022
+ *      Author: Benoit Piranda
+ */
+
+#include <user_code.h>
+#include <layer3_generic.h>
+#include <microphone.h>
+#include <speaker.h>
+#include <light.h>
+#include <abstraction.h>
+#include <speaker.h>
+#include <hwbuzzer.h>
+
+
+
+void BBinit() {
+	setColor(GREEN);
+}
+
+void BBloop() {
+	static uint32_t next_change=0;
+	uint32_t current_time=HAL_GetTick();
+	if (current_time >= next_change) {
+		make_sound(440, 500); // Play LA
+		next_change = current_time + 1500;
+	}
+}
+
+uint8_t process_standard_packet(L3_packet *packet) {
+	return 0;
+}
+
+void process_standard_ack(L3_packet *p) {
+}
+
+void process_standard_unack(L3_packet *p) {
+}

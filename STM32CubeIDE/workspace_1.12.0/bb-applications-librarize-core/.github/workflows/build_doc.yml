@@ -1,0 +1,24 @@
+name: Build documentation artifact
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_job:
+    name: Build documentation
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build doc
+        uses: mattnotmitt/doxygen-action@v1
+        with:
+          doxyfile-path: ./DOXYFILE
+      - name: Upload doc
+        uses: actions/upload-artifact@v2
+        with:
+          name: bb-gui-doc-html-${{ steps.date.outputs.date }}
+          path: doc/html/

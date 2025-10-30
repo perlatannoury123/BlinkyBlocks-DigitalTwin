@@ -1,0 +1,37 @@
+/*
+ * debug_messages.c
+ *
+ *  Created on: 5 oct. 2020
+ *      Author: flassabe
+ */
+
+#include <debug_messages.h>
+#include <layer3_generic.h>
+#include <string.h>
+
+L3_functions debug_message_functions = {
+		.process_packet = &process_debug_message,
+		.ack_handler = NULL,
+		.unack_handler = NULL,
+};
+
+void send_debug_message(uint8_t *message, uint8_t len) {
+	extern int8_t my_parent_uart;
+	debug_message_packet p;
+	p.packet_size = len;
+	p.packet_type = DEBUG_MESSAGE_TO_ROOT;
+	memcpy(p.content, message, len);
+	if (my_parent_uart != -1) {
+		send_data((uint8_t *) &p, len+2, L3_DEBUG_MESSAGE, my_parent_uart, 1);
+	}
+}
+
+uint8_t process_debug_message(L3_packet *packet) {
+	extern int8_t my_parent_uart;
+	if (my_parent_uart != -1) {
+		debug_message_packet *p = (debug_message_packet *) packet->packet_content;
+		if (p->packet_type == DEBUG_MESSAGE_TO_ROOT)
+			send_data((uint8_t *) p, p->packet_size+2, L3_DEBUG_MESSAGE, my_parent_uart, 1);
+	}
+	return 0;
+}

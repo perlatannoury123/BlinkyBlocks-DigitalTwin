@@ -1,0 +1,123 @@
+#include <user_code.h>
+#include <microphone.h>
+#include <speaker.h>
+#include <light.h>
+#include <abstraction.h>
+#include <debug_messages.h>
+#include <layer3_generic.h>
+#include <stdint.h>
+#include <string.h>
+
+
+uint8_t counter;
+int8_t x, y, z;
+uint8_t coordSet=0;
+
+typedef enum portReferences  {NORTH, DOWN, EAST, WEST, SOUTH, UP, NUM_PORTS, UNDEFINED=255};
+typedef enum debugMessages  {CONFIGURATION, MSG_RECEIVED, MSG_SENT, COLOR_CHANGED};
+
+typedef struct {
+	uint8_t message_type;
+	int8_t x;
+	int8_t y;
+	int8_t z;
+} coord_msg_t;
+
+// =========================
+// Initialization
+// =========================
+void BBinit() {
+	sleep_sec(1);
+	x=0;
+	y=0;
+	z=0;
+
+	if(getId() == 1) {
+		sleep_sec(5);
+		coord_msg_t msg = {
+			.message_type = 1,
+			.x = 0, .y=0, .z=0
+		};
+		coordSet = 1;
+		send_broadcast_message((uint8_t *) &msg, sizeof(coord_msg_t), 1);
+		setColor((x+y+z) % NB_COLORS);
+	}
+
+
+}
+
+// =========================
+// Main loop
+// =========================
+void BBloop() {
+
+//    counter++; // increment tick number
+//
+//        // --- Prepare a simple numeric message ---
+//        char msg[] = "Hi";
+//
+//          // just send one byte (the counter)
+//		if(getId() == 3){
+//		// --- Send message to parent/root ---
+//			sleep_sec(2);
+//			send_debug_message(msg, sizeof(msg));
+//			sleep_sec(1);
+//
+//		}
+
+}
+
+
+uint8_t process_standard_packet(L3_packet *packet) {
+
+	uint8_t sender = packet->io_port;
+	uint8_t dbg_msg_received[] = {MSG_RECEIVED, sender, packet->packet_content[0], (uint8_t) getId()};
+	send_debug_message(dbg_msg_received, sizeof(dbg_msg_received));
+	if (packet->packet_content[0] == 1) {
+		if(coordSet) return 0;
+		coord_msg_t *pkt = (coord_msg_t *) packet->packet_content;
+		switch(sender) {
+		case WEST:
+			x = pkt->x + 1;
+			y = pkt->y; z = pkt->z;
+			break;
+		case SOUTH:
+			x = pkt->x ;
+			y = pkt->y+1; z = pkt->z;
+			break;
+		case EAST:
+			x = pkt->x - 1;
+			y = pkt->y; z = pkt->z;
+			break;
+		case NORTH:
+			x = pkt->x ;
+			y = pkt->y-1; z = pkt->z;
+			break;
+		case UP:
+			x = pkt->x ;
+			y = pkt->y; z = pkt->z - 1;
+			break;
+		case DOWN:
+			x = pkt->x ;
+			y = pkt->y; z = pkt->z + 1;
+			break;
+		}
+		coordSet = 1;
+		// send  for all except sender
+		coord_msg_t msg = {
+					.message_type = 1,
+					.x = x, .y=y, .z=z
+				};
+		for(uint8_t i=0; i<NUM_PORTS; i++) {
+			if(is_connected(i) && i!= sender) {
+				sendMessage(i, (uint8_t *) &msg, sizeof(coord_msg_t), 1);
+			}
+		}
+		uint8_t dbgCoordmsg[] = {CONFIGURATION,x, y, z};
+		send_debug_message((uint8_t*) dbgCoordmsg, sizeof(dbgCoordmsg));
+		setColor((x+y+z)%NB_COLORS);
+	}
+	return 0;
+}
+void process_standard_ack(L3_packet *p) {}
+void process_standard_unack(L3_packet *p) {}

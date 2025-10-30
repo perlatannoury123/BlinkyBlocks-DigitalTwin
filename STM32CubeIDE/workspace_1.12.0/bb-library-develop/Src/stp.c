@@ -1,0 +1,159 @@
+/*
+ * stp.c
+ *
+ *  Created on: 27 mai 2020
+ *      Author: flassabe
+ */
+
+#include <stp.h>
+
+#ifdef STP
+#include <layer2.h>
+#include <light.h>
+#include <layer3_generic.h>
+#include <string.h>
+#include <abstraction.h>
+
+int8_t my_parent_uart = -1;
+// Defines the parent by its UART index, -1 if no parent is defined
+uint8_t my_children_uart = 0; 	// Defines children by flagging bits 0 to 5 related to UART indices
+							// Bit i to 0 means that UART #i neighbor is not my child
+							// Bit i to 1 means that UART #i neighbor is my child
+uint8_t my_neighbors = 0; // Used to track who answered a request
+uint32_t bb_count = 1; // count of all BB in my subtree, including myself
+
+L3_functions stp_functions = {
+		.process_packet = &process_STP_packet,
+		.ack_handler = NULL,
+		.unack_handler = &stp_unack_handler,
+};
+
+uint8_t process_parent_request(uint8_t port) {
+	if (my_parent_uart == -1) {
+		my_parent_uart = port;
+		for (uint8_t i=0; i<NB_SERIAL_PORT; ++i) {
+			if (is_connected(i) && i != port) {
+				uint8_t d = STP_COMMAND_PARENT_REQUEST;
+				my_neighbors |= (1 << i);
+				send_data(&d, 1, L3_STP, i, 1);
+			}
+		}
+		if (my_neighbors == 0) {
+			uint8_t buffer[5] = {STP_COMMAND_CHILD_ACCEPT, (bb_count>>24)&0xff, (bb_count>>16)&0xff,
+					(bb_count>>8)&0xff, bb_count&0xff};
+			send_data(buffer, 5, L3_STP, port, 1);
+		}
+	} else if (my_parent_uart == port) {
+		uint8_t buffer[5] = {STP_COMMAND_CHILD_ACCEPT, (bb_count>>24)&0xff, (bb_count>>16)&0xff,
+				(bb_count>>8)&0xff, bb_count&0xff};
+		send_data(buffer, 5, L3_STP, port, 1);
+	} else {
+		uint8_t reject = STP_COMMAND_CHILD_REJECT;
+		send_data(&reject, 1, L3_STP, port, 1);
+	}
+	return 0;
+}
+
+uint8_t process_child_accept(stp_command *packet, uint8_t port) {
+	uint8_t *ptr = (uint8_t *) &(packet->bb_count);
+	uint32_t count = (ptr[0]<<24) + (ptr[1]<<16) + (ptr[2]<<8) + ptr[3];
+	if ((my_neighbors & (1 << port)) != 0) {
+		my_neighbors &= 0xff^(1<<port);
+		bb_count += count;
+		my_children_uart |= (1<<port);
+		if (my_neighbors == 0) {
+			uint8_t buffer[5] = {STP_COMMAND_CHILD_ACCEPT, (bb_count>>24)&0xff, (bb_count>>16)&0xff,
+					(bb_count>>8)&0xff, bb_count&0xff};
+			send_data(buffer, 5, L3_STP, my_parent_uart, 1);
+		}
+	}
+	return 0;
+}
+
+uint8_t process_child_reject(uint8_t port) {
+	my_neighbors &= 0xff^(1<<port); // Just mark the response
+	if (my_neighbors == 0) {
+		uint8_t buffer[5] = {STP_COMMAND_CHILD_ACCEPT, (bb_count>>24)&0xff, (bb_count>>16)&0xff,
+				(bb_count>>8)&0xff, bb_count&0xff};
+		send_data(buffer, 5, L3_STP, my_parent_uart, 1);
+	}
+	return 0;
+}
+
+uint8_t process_clear_stp(uint8_t port) {
+	my_parent_uart = -1;
+	my_neighbors = 0;
+	bb_count = 1;
+	for (uint8_t i=0; i<NB_SERIAL_PORT; ++i) {
+		if ((my_children_uart & (1<<i)) != 0) {
+			uint8_t clear_val = STP_COMMAND_CLEAR_TREE;
+			send_data(&clear_val, 1, L3_STP, i, 1);
+		}
+	}
+	my_children_uart = 0;
+	return 0;
+}
+
+uint8_t process_STP_packet(L3_packet *p) {
+	uint8_t c = (p->packet_content[0] & 0xc0);
+	stp_command *stp_pkt;
+	switch (c) {
+	case STP_COMMAND_PARENT_REQUEST:
+		return process_parent_request(p->io_port);
+	break;
+	case STP_COMMAND_CHILD_ACCEPT:
+		stp_pkt = (stp_command *) p->packet_content;
+		return process_child_accept(stp_pkt, p->io_port);
+	break;
+	case STP_COMMAND_CHILD_REJECT:
+		return process_child_reject(p->io_port);
+	break;
+	case STP_COMMAND_CLEAR_TREE:
+		return process_clear_stp(p->io_port);
+	break;
+	}
+	return 0;
+}
+
+void copy_packet_to_children(L3_packet *p, L3_packet_type ptype, uint16_t size) {
+	if (my_children_uart != 0) {
+		for (uint8_t i=0; i<NB_SERIAL_PORT; ++i) {
+			if ((my_children_uart & (1<<i)) != 0) {
+				L3_packet *packet = get_free_L3_packet(ptype);
+				if (packet) {
+					packet->io_port = i;
+					packet->functions = NULL;
+					for (uint8_t j=0; j<size; ++j) {
+						packet->packet_content[j] = p->packet_content[j];
+					}
+					send_layer3_packet(packet, ptype, size, 1);
+				}
+			}
+		}
+	}
+}
+
+uint8_t is_child(uint8_t uart_index) {
+	return (my_children_uart & (1 << uart_index)) != 0;
+}
+
+void stp_unack_handler(L3_packet *p) {
+	if (p->io_port != my_parent_uart)
+		process_child_reject(p->io_port);
+}
+
+void start_stp() {
+	for (uint8_t i=0; i<NB_SERIAL_PORT; ++i) {
+		if (is_connected(i)) {
+			L3_packet *packet = get_free_L3_packet(L3_STP);
+			if (packet) {
+				packet->io_port = i;
+				packet->functions = NULL;
+				packet->packet_content[0] = 0x40;
+				send_layer3_packet(packet, L3_STP, 1, 1);
+			}
+		}
+	}
+}
+
+#endif // STP

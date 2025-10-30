@@ -1,0 +1,95 @@
+command to see if the usb port is plogged: sudo dmesg | grep ttyUSB
+
+
+1) First you open the first terminal to run the IDE using the following command : flatpak run com.st.STM32CubeIDE
+
+2) You will see in the Project explorer all the files you need. The most important folder is the src folder, inside of it you will use only "user_code.c"
+
+3) Inside "user_code.c" you have 2 important functions 
+void BBinit() {
+	setColor(GREEN);
+}
+
+void BBloop() {
+	setColor(GREEN);
+	sleep_sec(2);
+	setColor(RED);
+	sleep_sec(1);
+	setColor(BLUE);
+	sleep_sec(1);
+	setColor(PURPLE);
+	sleep_sec(2);
+}
+
+here you write what your program should do.
+
+4) you build the program
+
+5)You open a second terminal and you run this command: 
+cd STM32CubeIDE/workspace_1.12.0/bb-applications-librarize-core/Release/
+
+6) Then this command:
+blinkyApploaderCLI -t -p bb-applications-librarize-core.hex -s /dev/ttyUSB0 -q && blinkyApploaderCLI -t -s /dev/ttyUSB0
+
+7) lastly this command: 
+blinkyApploaderCLI -t -j 0x8010000 -s /dev/ttyUSB0 -q
+
+8) for receiving debug messages:
+blinkyApploaderCLI -t -s /dev/ttyUSB0
+
+9) Redirect output to file or fifo:
+stdbuf -oL blinkyApploaderCLI -t -s /dev/ttyUSB0 | tee  /tmp/bbfifo
+
+
+TODO a beep and change color:
+void BBloop() {
+	static uint32_t next_change=0;
+	uint32_t current_time=HAL_GetTick();
+	if (current_time >= next_change) {
+		make_sound(440, 500); // Play LA
+		next_change = current_time + 1500;
+	}
+	sleep_sec(1);
+	setColor(GREEN);
+			sleep_sec(2);
+			setColor(RED);
+			sleep_sec(1);
+			setColor(BLUE);
+			sleep_sec(1);
+			setColor(PURPLE);
+			sleep_sec(2);
+}
+
+
+multi cast message neighbor:
+void BBloop() {
+
+	uint8_t my_distance = 0;
+
+	uint8_t neighbors;
+
+	neighbors = send_broadcast_message(&my_distance, sizeof(uint8_t), 1);
+	    if (neighbors > 0) {
+	        setColor(PURPLE);  // message successfully sent
+	        sleep_sec(1);
+	    }
+}
+
+TO send a message
+void BBloop() {
+
+  counter++; // increment tick number
+
+       // --- Prepare a simple numeric message ---
+       char msg[] = "Hi";
+
+         // just send one byte (the counter)
+	if(getId() == 3){
+//		// --- Send message to parent/root ---
+			sleep_sec(2);
+			send_debug_message(msg, sizeof(msg));
+			sleep_sec(1);
+
+		}
+
+}

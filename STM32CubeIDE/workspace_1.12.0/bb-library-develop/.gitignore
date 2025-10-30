@@ -1,0 +1,17 @@
+Debug/
+Debug/*
+Release/
+Release/*
+/Test.elf.launch
+/Test.ioc.bak
+*.hex
+*.bak
+*.elf
+*.bin
+*.orig
+.settings/*
+!doc/
+doc/*
+!doc/*.png
+!doc/*.css
+DOXYFILE.bak

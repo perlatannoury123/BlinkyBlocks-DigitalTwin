@@ -1,0 +1,92 @@
+/*
+ * user_code.c
+ *
+ *  Created on: oct. 21, 2022
+ *      Author: Benoit Piranda
+ */
+
+#include <user_code.h>
+#include <layer3_generic.h>
+#include <microphone.h>
+#include <speaker.h>
+#include <light.h>
+#include <abstraction.h>
+#include <speaker.h>
+#include <stdio.h>   // for strlen, snprintf
+#include <string.h>
+
+void BBinit() {
+	setColor(GREEN);
+}
+
+
+
+/* Send a debug report to each connected neighbor using send_message()
+   The send_message prototype (per PDF) is:
+     send_message(uint8_t uart_index, uint8_t *data, uint16_t size, uint8_t has_ack);
+*/
+void send_debug_message() {
+    char debug_msg[64];
+    uint8_t connected_mask = 0;
+
+    // Build connected mask
+    for (uint8_t i = 0; i < 6; ++i) {
+        if (is_connected(i)) {
+            connected_mask |= (1 << i);
+        }
+    }
+
+    // Compose message (include mask; you can also include an ID or timestamp)
+    // Note: snprintf returns number of bytes that would have been written
+    int n = snprintf(debug_msg, sizeof(debug_msg),
+                     "BB debug: color=BLUE, conn=0x%02X", connected_mask);
+    if (n < 0) {
+        // formatting error: abort sending
+        return;
+    }
+
+    uint16_t msg_len = (uint16_t)( (n < (int)sizeof(debug_msg)) ? n + 1 : sizeof(debug_msg) );
+    // +1 to include '\0' if it fits, otherwise we send the truncated buffer
+
+    // Send to each connected interface using send_message
+    for (uint8_t iface = 0; iface < 6; ++iface) {
+        if (is_connected(iface)) {
+            // send_message expects uint8_t* payload — cast from char*
+            int res = send_message(iface, (uint8_t *)debug_msg, msg_len, 1);
+            (void)res; // ignore return value to avoid unused-variable warnings
+            // If you want to check success, inspect 'res' and act accordingly.
+        }
+    }
+
+    // Also print locally for the serial console
+    printf("%s\n", debug_msg);
+}
+
+void BBloop() {
+    static uint32_t last_debug_time = 0;
+    uint32_t now = HAL_GetTick();
+
+    // example: send debug every 2 seconds
+    if (now - last_debug_time >= 2000) {
+        last_debug_time = now;
+
+        // indicate visually
+        setColor(BLUE);
+
+        // send the debug report
+        send_debug_message();
+
+        // optional: revert color after some time or on next condition
+    }
+}
+
+
+uint8_t process_standard_packet(L3_packet *packet) {
+	return 0;
+}
+
+void process_standard_ack(L3_packet *p) {
+}
+
+void process_standard_unack(L3_packet *p) {
+}
