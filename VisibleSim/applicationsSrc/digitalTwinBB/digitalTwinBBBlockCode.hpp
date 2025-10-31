@@ -14,6 +14,7 @@ class DigitalTwinBBBlockCode : public BlinkyBlocksBlockCode {
 private:
     int distance;
     BlinkyBlocksBlock *module;
+    int BBid;
 public :
     DigitalTwinBBBlockCode(BlinkyBlocksBlock *host);
     ~DigitalTwinBBBlockCode() {};

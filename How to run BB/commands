@@ -38,7 +38,21 @@ blinkyApploaderCLI -t -j 0x8010000 -s /dev/ttyUSB0 -q
 blinkyApploaderCLI -t -s /dev/ttyUSB0
 
 9) Redirect output to file or fifo:
-stdbuf -oL blinkyApploaderCLI -t -s /dev/ttyUSB0 | tee  /tmp/bbfifo
+ a) blinkyApploaderCLI -t -p bb-applications-librarize-core.hex -s /dev/ttyUSB0
+ b) blinkyApploaderCLI -t -j 0x8010000 -s /dev/ttyUSB0 -q
+ c) stdbuf -oL blinkyApploaderCLI -t -s /dev/ttyUSB0 | tee  /tmp/bbfifo
+
+
+10) IN VISIBLE SIM YOU OPEN 2 terminals
+ a) /desktop/VisisibleSim: make -j 8    (to make the file in appBin)
+ b) cd .. applicationsBin
+    cd .. digitalTwinBB
+    ./digitalTwinBB -r
+
+
+
+
+
 
 
 TODO a beep and change color:

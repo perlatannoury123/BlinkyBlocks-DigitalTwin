@@ -41,7 +41,7 @@ void DigitalTwinBBBlockCode::startup() {
     console << "start";
     cout << "test\n";
     // Sample distance coloring algorithm below
-    if (module->blockId == 1) { // Master ID is 1
+    if (module->blockId == 999) { // Master ID is 1
         // runCommand("blinkyApploaderCLI -t -j 0x8010000 -s /dev/ttyUSB0 -q");
         // cout << "-j done rinning -t...\n";
         // runCommand("stdbuf -oL blinkyApploaderCLI -t -s /dev/ttyUSB0");
@@ -101,14 +101,15 @@ void DigitalTwinBBBlockCode::readFifo() {
                              << static_cast<int>(static_cast<uint8_t>(b)) << " ";
                     cout << dec << endl;
 
-                    if (bytes.size() >= 5 && bytes[1] == 0) {
+                    if (bytes.size() >= 6  && bytes[1] == 0) {
                         Cell3DPosition pos;
                         pos.pt[0] = bytes[2];
                         pos.pt[1] = bytes[3];
                         pos.pt[2] = bytes[4];
                         int color = bytes[5];
+                        int BBid = bytes[6];
                         cout << "Cell3dPosition: " << pos << endl;
-                        BaseSimulator::getWorld()->addBlock(0, DigitalTwinBBBlockCode::buildNewBlockCode, pos, BBColors[color]);
+                        BaseSimulator::getWorld()->addBlock(BBid, DigitalTwinBBBlockCode::buildNewBlockCode, pos, BBColors[color]);
                     }
                 } else {
                     // Non-hex message → just log it
@@ -308,15 +309,16 @@ void DigitalTwinBBBlockCode::runCommand(const string &cmd) {
                     cout << dec << endl;
 
                     // Example: replicate readFifo logic
-                    if (bytes.size() >= 5 && bytes[1] == 0) {
+                    if (bytes.size() >= 6 && bytes[1] == 0) {
                         Cell3DPosition pos;
                         pos.pt[0] = bytes[2];
                         pos.pt[1] = bytes[3];
                         pos.pt[2] = bytes[4];
                         cout << "Cell3dPosition: " << pos << endl;
                         int color = bytes[5];
+                        int BBid = bytes[6];
                         cout << "Cell3dPosition: " << pos << endl;
-                        BaseSimulator::getWorld()->addBlock(0, DigitalTwinBBBlockCode::buildNewBlockCode, pos, BBColors[color]);
+                        BaseSimulator::getWorld()->addBlock(BBid, DigitalTwinBBBlockCode::buildNewBlockCode, pos, BBColors[color]);
                     }
                 } else {
                     cout << "(Non-hex message ignored)" << endl;

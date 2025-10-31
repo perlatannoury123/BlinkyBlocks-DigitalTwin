@@ -72,8 +72,8 @@ void BBinit() {
 
         // Set the LED color based on the sum of coordinates
         setColor((x + y + z) % NB_COLORS);
-        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z, (x + y + z) % NB_COLORS, getId()};
-        send_debug_message((uint8_t *)dbgCoordmsg, 6);
+        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z, (x + y + z) % NB_COLORS};
+        send_debug_message((uint8_t *)dbgCoordmsg, 5);
     }
 }
 

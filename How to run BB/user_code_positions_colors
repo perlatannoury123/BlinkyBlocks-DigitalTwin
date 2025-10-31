@@ -15,7 +15,6 @@ uint8_t counter;         // General-purpose counter (unused in this code)
 int8_t x, y, z;          // Coordinates of the block in 3D space
 uint8_t coordSet = 0;    // Flag to indicate whether coordinates are already set
 
-
 // =========================
 // Enumerations
 // =========================
@@ -36,7 +35,6 @@ typedef struct {
     int8_t y;             // Y coordinate
     int8_t z;             // Z coordinate
     int8_t color;
-    uint8_t id;           // Block ID (new)
 } coord_msg_t;
 
 // =========================
@@ -59,11 +57,8 @@ void BBinit() {
             .message_type = 1,
             .x = x,
             .y = y,
-            .z = z,
-            .color = (x + y + z) % NB_COLORS, //(New there was no color before)
-            .id = getId()  // Each block sends *its own* ID (New°
+            .z = z
         };
-
 
         coordSet = 1; // Mark coordinates as set
 
@@ -72,8 +67,8 @@ void BBinit() {
 
         // Set the LED color based on the sum of coordinates
         setColor((x + y + z) % NB_COLORS);
-        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z, (x + y + z) % NB_COLORS, getId()};
-        send_debug_message((uint8_t *)dbgCoordmsg, 6);
+        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z, (x + y + z) % NB_COLORS};
+        send_debug_message((uint8_t *)dbgCoordmsg, 5);
     }
 }
 
@@ -119,8 +114,7 @@ uint8_t process_standard_packet(L3_packet *packet) {
             .message_type = 1,
             .x = x,
             .y = y,
-            .z = z,
-			.id = getId()    // Add the block ID (new)
+            .z = z
         };
 
         // Send the message to all connected ports except the sender
@@ -135,13 +129,8 @@ uint8_t process_standard_packet(L3_packet *packet) {
 
         // Set LED color based on updated coordinates
         setColor((x + y + z) % NB_COLORS);
-
-        //Sending configuration, positions x y z, colors and ID
-        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z,(x + y + z) % NB_COLORS, getId() };
-	   send_debug_message((uint8_t *)dbgCoordmsg, 6);
-
-
-
+        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z,(x + y + z) % NB_COLORS };
+	   send_debug_message((uint8_t *)dbgCoordmsg, 5);
     }
 
     return 0;
@@ -152,3 +141,4 @@ uint8_t process_standard_packet(L3_packet *packet) {
 // =========================
 void process_standard_ack(L3_packet *p) {}
 void process_standard_unack(L3_packet *p) {}
+

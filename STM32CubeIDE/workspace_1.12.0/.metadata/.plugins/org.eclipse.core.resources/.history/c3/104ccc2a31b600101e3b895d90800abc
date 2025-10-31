@@ -15,7 +15,6 @@ uint8_t counter;         // General-purpose counter (unused in this code)
 int8_t x, y, z;          // Coordinates of the block in 3D space
 uint8_t coordSet = 0;    // Flag to indicate whether coordinates are already set
 
-
 // =========================
 // Enumerations
 // =========================
@@ -59,11 +58,8 @@ void BBinit() {
             .message_type = 1,
             .x = x,
             .y = y,
-            .z = z,
-            .color = (x + y + z) % NB_COLORS, //(New there was no color before)
-            .id = getId()  // Each block sends *its own* ID (New°
+            .z = z
         };
-
 
         coordSet = 1; // Mark coordinates as set
 
@@ -72,8 +68,8 @@ void BBinit() {
 
         // Set the LED color based on the sum of coordinates
         setColor((x + y + z) % NB_COLORS);
-        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z, (x + y + z) % NB_COLORS, getId()};
-        send_debug_message((uint8_t *)dbgCoordmsg, 6);
+        uint8_t dbgCoordmsg[] = {(uint8_t)CONFIGURATION, x, y, z, (x + y + z) % NB_COLORS};
+        send_debug_message((uint8_t *)dbgCoordmsg, 5);
     }
 }
 
